@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"html/template"
 	"io/ioutil"
 	"os"
@@ -17,6 +18,11 @@ type Posts struct {
 }
 
 func main() {
+
+	
+	examplePtr := flag.String("file", "html-file.html", " Help text.")
+	flag.Parse()
+	
 	// Assigns all template engines. AKA all user templates.
 	paths := []string {
 		"template.tmpl",
@@ -38,7 +44,8 @@ func main() {
 	out, _ := ioutil.ReadAll(r)
 	os.Stdout = rescueStdout
 
-	WriteFile("html-file.html", out)
+	WriteFile(*examplePtr, out)
+	
 
 }
 
