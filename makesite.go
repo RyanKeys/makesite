@@ -4,69 +4,84 @@ import (
 	"flag"
 	"html/template"
 	"io/ioutil"
+	"log"
+	"makesite/packages/userutils"
+	"strings"
+
 	"os"
 )
-
-
-
 type Post struct {
 	Content string
 }
 
-type Posts struct {
-	Items []Post
-}
-
 func main() {
-
+	//Handles potential system arguments called on execution.
+	fileFlag := flag.String("file", "html-file.html", "Tells the program what '.txt' file to convert.")
+	dirFlag := flag.String("dir", "", "Specifies the directory in which to search for all '.txt' files.")
 	
-	examplePtr := flag.String("file", "html-file.html", " Help text.")
 	flag.Parse()
-	
-	// Assigns all template engines. AKA all user templates.
+
 	paths := []string {
 		"template.tmpl",
 	}
 
+	if *dirFlag != "" {
+		files, err := ioutil.ReadDir(*dirFlag)
+		if err != nil {
+			log.Fatal(err)
+		}
+		
+		for _, file := range files {
+			r,w,e := os.Pipe()
+			if e != nil {
+				panic(e)
+			}
 
-	rescueStdout := os.Stdout
-	r,w,_ := os.Pipe()
-	os.Stdout = w
-	
-	//Creates 'posts' variable that contains a list of all text files contained in Post struct(s) instantiated above.
-	posts := Posts {[]Post{{ReadFile("first-post.txt")},{ReadFile("latest-post.txt")}}}
-	t := template.Must(template.New("template.tmpl").ParseFiles(paths...))
-	err := t.Execute(os.Stdout, posts)
-	if err != nil {
-		panic(err)
+			os.Stdout = w
+			if strings.Contains(file.Name(),".txt") {
+				post := Post{Content:userutils.ReadFile(file.Name())}
+				paths = append(paths, file.Name())
+				t := template.Must(template.New("template.tmpl").ParseFiles(paths...))
+				err = t.Execute(w, post)
+				if err != nil {
+					panic(err)
+				}
+				w.Close()
+				out, e := ioutil.ReadAll(r)
+				if e != nil {
+					panic(e)
+				}
+				if *fileFlag == "" {
+					userutils.WriteFile(file.Name()[0:len(file.Name())-4]+".html",out)
+				} else {
+					userutils.WriteFile(*fileFlag, out)
+					
+				}
+			}
+		}
+	} else if *fileFlag != ""{
+		r,w,e := os.Pipe()
+			if e != nil {
+				panic(e)
+			}
+		t := template.Must(template.New("template.tmpl").ParseFiles(paths...))
+		err := t.Execute(w, Post{Content: userutils.ReadFile("first-post.txt")})
+		if err != nil {
+			panic(err)
+		}
+
+		w.Close()
+
+		out, e := ioutil.ReadAll(r)
+		if e != nil {
+			panic(e)
+		}
+
+		userutils.WriteFile(*fileFlag, out)
+
 	}
-	w.Close()
-	out, _ := ioutil.ReadAll(r)
-	os.Stdout = rescueStdout
 
-	WriteFile(*examplePtr, out)
+	
 	
 
 }
-
-
-func ReadFile(filename string) string {
-	fileContents, err := ioutil.ReadFile(filename)
-        if err != nil {
-            // A common use of `panic` is to abort if a function returns an error
-            // value that we don’t know how to (or want to) handle. This example
-            // panics if we get an unexpected error when creating a new file.
-            panic(err)
-        }
-        return string(fileContents)
-}
-
-func WriteFile(filename string, data []byte) {
-	err := ioutil.WriteFile(filename, data, 0644)
-	if err != nil {
-		panic(err)
-	}
-}
-
-
-
